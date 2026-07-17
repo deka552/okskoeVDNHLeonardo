@@ -1,7 +1,7 @@
 // ============================================================
 //  ARDUINO LEONARDO
 //  Пин 5  — кнопка (INPUT_PULLUP, замыкание на GND)
-//  Пин 12 — реле SSR, HIGH 35 сек по нажатию
+//  Пин 12 — всегда HIGH, по нажатию импульс LOW 100 мс
 //  Пин 13 — встроенный LED, горит 3 сек по нажатию
 // ============================================================
 #include <Arduino.h>
@@ -16,10 +16,10 @@ unsigned long lastDebounceTime = 0;
 const unsigned long debounceDelay = 50;
 bool btnStable = false;
 
-// ---------- реле (пин 12) — 35 сек ----------
-bool relayActive = false;
-unsigned long relayStartMs = 0;
-const unsigned long relayDurationMs = 35000;
+// ---------- импульс LOW на пине 12 ----------
+bool pulseActive = false;
+unsigned long pulseStartMs = 0;
+const unsigned long pulseDurationMs = 100; // 100 мс хватит любому реле
 
 // ---------- LED (пин 13) — 3 сек ----------
 bool ledActive = false;
@@ -33,7 +33,7 @@ void setup()
   pinMode(BTN_PIN, INPUT_PULLUP);
   pinMode(RELAY_PIN, OUTPUT);
   pinMode(LED_PIN, OUTPUT);
-  digitalWrite(RELAY_PIN, LOW);
+  digitalWrite(RELAY_PIN, HIGH); // покой = HIGH
   digitalWrite(LED_PIN, LOW);
 
   Serial.println("Leonardo ready");
@@ -53,28 +53,27 @@ void loop()
     if (raw != btnStable)
     {
       btnStable = raw;
-      if (btnStable) // замыкание = срабатывание
+      if (btnStable) // замыкание
       {
-        relayActive = true;
-        relayStartMs = millis();
-        digitalWrite(RELAY_PIN, HIGH);
+        pulseActive = true;
+        pulseStartMs = millis();
+        digitalWrite(RELAY_PIN, LOW); // начало импульса
 
         ledActive = true;
         ledStartMs = millis();
         digitalWrite(LED_PIN, HIGH);
 
-        Serial.println("BTN → RELAY 35s, LED 3s");
+        Serial.println("BTN → pulse LOW 100ms, LED 3s");
       }
     }
   }
   lastBtnState = raw;
 
-  // ---------- неблокирующее выключение реле ----------
-  if (relayActive && millis() - relayStartMs >= relayDurationMs)
+  // ---------- конец импульса → обратно HIGH ----------
+  if (pulseActive && millis() - pulseStartMs >= pulseDurationMs)
   {
-    relayActive = false;
-    digitalWrite(RELAY_PIN, LOW);
-    Serial.println("RELAY off");
+    pulseActive = false;
+    digitalWrite(RELAY_PIN, HIGH);
   }
 
   // ---------- неблокирующее выключение LED ----------
